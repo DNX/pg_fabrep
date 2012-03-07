@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from datetime import datetime
+import re
 from os.path import abspath, dirname
+from datetime import datetime
 from fabric.api import env, puts, abort, task
 #from fabric.operations import sudo, settings, run
 from fabric.contrib import console
@@ -26,8 +27,8 @@ def setup():
         if not console.confirm("Configuration test %s! Do you want to continue?" % red_bg('failed'), default=False):
             abort("Aborting at user request.")
     #  test configuration end
-    if env.ask_confirmation:
-        if not console.confirm("Are you sure you want to setup %s cluster?" % red_bg(env.project.upper()), default=False):
+    if _value('ask_confirmation'):
+        if not console.confirm("Are you sure you want to setup %s cluster?" % red_bg(_value('cluster_name').upper()), default=False):
             abort("Aborting at user request.")
     puts(green_bg('Start setup...'))
     start_time = datetime.now()
@@ -41,13 +42,16 @@ def setup():
 
 
 @task
-def test_configuration(verbose=True):
+def test_configuration():
     errors = []
-    parameters_info = []
-    if 'cluster_name' not in env or not env.cluster_name:
+
+    if not _value('cluster_name'):
         errors.append('Cluster name missing')
-    elif verbose:
-        parameters_info.append(('Cluster name', env.cluster_name))
+    elif not re.search(r"^\w+$", _value('cluster_name')):
+        errors.append("%s is not a valid app name. Please use only numbers, letters and underscores." % red_bg(_value('cluster_name')))
+
+    if not _value('pgmaster_ip'):
+        errors.append('Master server IP missing')
 
     # print some feedback
     if errors:
@@ -60,10 +64,32 @@ def test_configuration(verbose=True):
             puts('-' * 40)
             puts('Please fix them or go ahead at your own risk.')
         return False
-    elif verbose:
-        for parameter in parameters_info:
-            parameter_formatting = "'%s'" if isinstance(parameter[1], str) else "%s"
-            parameter_value = parameter_formatting % parameter[1]
-            puts('%s %s' % (parameter[0].ljust(27), green(parameter_value)))
-    puts('Configuration tests passed!')
+    puts(green('Configuration tests passed!'))
     return True
+
+
+@task
+def print_configuration():
+    parameters_info = []
+    parameters_info.append(('Cluster name', _value('cluster_name')))
+
+    # print collected info
+    for parameter in parameters_info:
+        parameter_formatting = "'%s'" if isinstance(parameter[1], str) else "%s"
+        parameter_value = parameter_formatting % parameter[1]
+        puts('%s %s' % (parameter[0].ljust(27), green(parameter_value)))
+
+
+def _value(parameter, recursion=False):
+    """
+        Return the value of the passed parameter name
+    """
+    value = env.get(parameter)
+    if value or recursion:
+        return value
+    # the default value of some parameters
+    default_values = dict(cluster_port=5432,
+                            pgmaster_user_host="root@%s" % _value('pgmaster_ip', True),
+                            ask_confirmation=True,
+                            )
+    return default_values.get(parameter)

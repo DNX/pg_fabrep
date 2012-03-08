@@ -38,10 +38,6 @@ def example_cluster():
     # default: "/var/lib/postgresql/<env.postgres_version>/<env.cluster_name>/"
     #env.master_pgdata_path = "/var/lib/postgresql/%s/%s/" % (env.postgres_version, env.cluster_name)
 
-    # always ask user for confirmation when run any tasks
-    # default: True
-    #env.ask_confirmation = True
-
     # the IP of your slave server
     env.pgslave_ip = ""
 
@@ -76,3 +72,11 @@ def example_cluster():
     # repmgr_deb
     # default:"postgresql-repmgr-<env.postgres_version>_1.0.0.deb"
     #env.repmgr_deb = "postgresql-repmgr-%s_1.0.0.deb" % env.postgres_version
+
+    # always ask user for confirmation when run any tasks
+    # default: True
+    #env.ask_confirmation = False
+
+    # verbose, if True will print some info during the setup
+    # default: False
+    #env.verbose = True

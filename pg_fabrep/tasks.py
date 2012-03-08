@@ -3,7 +3,7 @@
 import re
 from os.path import abspath, dirname
 from datetime import datetime
-from fabric.api import env, puts, abort, task
+from fabric.api import env, puts, abort, task, settings, run, sudo, put
 #from fabric.operations import sudo, settings, run
 from fabric.contrib import console
 #from fabric.contrib.files import upload_template
@@ -34,11 +34,16 @@ def setup():
     puts(green_bg('Start setup...'))
     start_time = datetime.now()
 
-#   xxx
+    # Start configuring master server
+    with settings(host_string=env.pgmaster_user_host):
+        print "%s configuring master server!" % green_bg("Start")
+        _verify_sudo()
+        _common_setup()
+        sudo("pg_createcluster --start %s %s -p %s" % (env.postgres_version, env.cluster_name, env.cluster_port))
 
     end_time = datetime.now()
     finish_message = '[%s] Correctly finished in %i seconds' % \
-    (green_bg(end_time.strftime('%H:%M:%S')), (end_time - start_time).seconds)
+    (green(end_time.strftime('%H:%M:%S')), (end_time - start_time).seconds)
     puts(finish_message)
 
 
@@ -170,3 +175,44 @@ def parameter_default_values():
         env.sync_pass = 'syncpass'
     if 'repmgr_deb' not in env:
         env.repmgr_deb = "postgresql-repmgr-%s_1.0.0.deb" % env.postgres_version
+
+
+def _verify_sudo():
+    ''' we just check if the user is sudoers '''
+    sudo('cd .')
+
+
+def _add_postgres9_ppa():
+    ''' add postgresql 9.x ppa '''
+    sudo('add-apt-repository ppa:pitti/postgresql')
+
+
+def _install_dependencies():
+    ''' Ensure those Debian/Ubuntu packages are installed '''
+    packages = [
+        'postgresql-%s' % env.postgres_version,
+        'libpq-dev',
+        'postgresql-server-dev-%s' % env.postgres_version,
+        'postgresql-contrib-%s' % env.postgres_version,
+        'libxslt-dev',
+        'libxml2-dev',
+        'libpam-dev',
+        'libedit-dev',
+    ]
+    sudo("apt-get update")
+    sudo("apt-get -y install %s" % " ".join(packages))
+    #sudo("pip install --upgrade pip")
+
+
+def _common_setup():
+    sudo("apt-get -y install python-software-properties")
+    _add_postgres9_ppa()
+    _install_dependencies()
+    # create a symlink in /usr/bin/ for /usr/lib/postgresql/<postgres_version>/bin/pg_ctl
+    sudo('ln -sf /usr/lib/postgresql/%s/bin/pg_ctl /usr/bin/' % env.postgres_version)
+    # install repmgr
+    remote_repmgr_deb = '/tmp/%s' % env.repmgr_deb
+    local_repmgr_deb = 'deb/%s' % env.repmgr_deb
+    put(local_repmgr_deb, remote_repmgr_deb)
+    run('dpkg -i --force-overwrite %s' % remote_repmgr_deb)
+    sudo("rm %s" % remote_repmgr_deb)

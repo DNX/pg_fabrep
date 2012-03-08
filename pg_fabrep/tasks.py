@@ -83,6 +83,34 @@ def setup():
         sudo("""echo -e "# Added by pg_fabrep\nexport PGDATA='/var/lib/postgresql/9.1/%s'\nexport PGPORT=%s">/var/lib/postgresql/.bash_profile""" % (env.cluster_name, env.cluster_port))
         sudo("pg_ctlcluster %(postgres_version)s %(cluster_name)s restart" % env)
 
+    # Start configuring the slave
+    with settings(host_string=env.pgslave_user_host):
+        sudo('/etc/init.d/postgresql stop')
+        sudo('rm -rf %s' % env.slave_pgdata_path)
+        _standby_clone()
+        # upload repmgr.conf on slave server
+        repmgr_context = dict(cluster_name=env.cluster_name,
+                              node_number=env.slave_node_number,
+                              sync_pg_user=env.sync_user,
+                              sync_database=env.sync_db,
+                              sync_pg_user_pass=env.sync_pass,
+                              )
+        repmgr_conf_file = 'conf/repmgr/repmgr.conf'
+        if not isfile(repmgr_conf_file):
+            repmgr_conf_file = '%s/%s' % (pg_fabrep_path, repmgr_conf_file)
+        upload_template(repmgr_conf_file, env.master_pgdata_path,
+                        context=repmgr_context, backup=False)
+        slave_postgresql_conf = "%spostgresql.conf" % env.slave_pgdata_path
+        slave_postgresql_conf_bck = "%spostgresql.conf.bck" % env.slave_pgdata_path
+        sudo('mv %s %s' % (slave_postgresql_conf, slave_postgresql_conf_bck))
+        sudo("sed '/hot_standby =/c hot_standby = on' %s > %s" % \
+             (slave_postgresql_conf_bck, slave_postgresql_conf))
+        sudo("mkdir -p %s" % env.slave_pgconf_path)
+        sudo("cp %spg_hba.conf %s" % (env.slave_pgdata_path, env.slave_pgconf_path))
+        sudo("cp %spg_ident.conf %s" % (env.slave_pgdata_path, env.slave_pgconf_path))
+        sudo("cp %spostgresql.conf %s" % (env.slave_pgdata_path, env.slave_pgconf_path))
+        run("sudo -u postgres pg_ctl -D /var/lib/postgresql/%(postgres_version)s/%(cluster_name)s/ start" % env)
+
     end_time = datetime.now()
     finish_message = '[%s] Correctly finished in %i seconds' % \
     (green(end_time.strftime('%H:%M:%S')), (end_time - start_time).seconds)

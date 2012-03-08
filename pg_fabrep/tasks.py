@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import re
-from os.path import abspath, dirname
+from os.path import abspath, dirname, isfile
 from datetime import datetime
-from fabric.api import env, puts, abort, task, settings, run, sudo, put
+from fabric.api import env, puts, abort, task, settings, run, sudo, put, hide, cd, upload_template
 #from fabric.operations import sudo, settings, run
 from fabric.contrib import console
 #from fabric.contrib.files import upload_template
@@ -39,7 +39,16 @@ def setup():
         print "%s configuring master server!" % green_bg("Start")
         _verify_sudo()
         _common_setup()
-        sudo("pg_createcluster --start %s %s -p %s" % (env.postgres_version, env.cluster_name, env.cluster_port))
+        with settings(hide('running', 'stdout', 'stderr', 'warnings'), warn_only=True):
+            res = sudo("pg_createcluster --start %(postgres_version)s %(cluster_name)s -p %(cluster_port)s" % env)
+        if 'already exists' in res:
+            puts(green("Cluster '%(cluster_name)s' already exists, will not be changed." % env))
+        with cd(env.master_pgdata_path):
+            run('''sudo -u postgres psql -p %(cluster_port)s -c "CREATE USER %(sync_user)s SUPERUSER ENCRYPTED PASSWORD '%(sync_pass)s';"''' % env, shell=False)
+            run('''sudo -u postgres createdb -p %(cluster_port)s --owner %(sync_user)s --template template0 --encoding=UTF8 --lc-ctype=en_US.UTF-8 --lc-collate=en_US.UTF-8 %(sync_db)s''' % env, shell=False)
+            run('''sudo -u postgres psql -p %(cluster_port)s -c "GRANT CREATE, CONNECT ON DATABASE %(sync_db)s TO %(sync_user)s WITH GRANT OPTION;"''' % env, shell=False)
+        upload_template('conf/postgres/postgresql.conf', env.master_pgconf_path,
+                        context=env, backup=False)
 
     end_time = datetime.now()
     finish_message = '[%s] Correctly finished in %i seconds' % \
@@ -212,7 +221,11 @@ def _common_setup():
     sudo('ln -sf /usr/lib/postgresql/%s/bin/pg_ctl /usr/bin/' % env.postgres_version)
     # install repmgr
     remote_repmgr_deb = '/tmp/%s' % env.repmgr_deb
-    local_repmgr_deb = 'deb/%s' % env.repmgr_deb
+    if isfile(env.repmgr_deb):
+        ''' we use user defined nginx.conf template '''
+        local_repmgr_deb = env.repmgr_deb
+    else:
+        local_repmgr_deb = '%s/deb/%s' % (pg_fabrep_path, env.repmgr_deb)
     put(local_repmgr_deb, remote_repmgr_deb)
     run('dpkg -i --force-overwrite %s' % remote_repmgr_deb)
     sudo("rm %s" % remote_repmgr_deb)

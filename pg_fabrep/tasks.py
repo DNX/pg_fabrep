@@ -111,6 +111,15 @@ def setup():
         sudo("cp %spostgresql.conf %s" % (env.slave_pgdata_path, env.slave_pgconf_path))
         run("sudo -u postgres pg_ctl -D /var/lib/postgresql/%(postgres_version)s/%(cluster_name)s/ start" % env)
 
+    #  TODO: ...
+    # # repmgr register master
+    # with settings(host_string=env.master_host_local_ip):
+    #     sudo('repmgr -f %srepmgr.conf --verbose master register' % \
+    #          env.master_pgdata_path, user='postgres')
+    # # repmgr register slave
+    # with settings(host_string=env.slave_host):
+    #     sudo('repmgr -f %srepmgr.conf --verbose standby register' % \
+    #          env.slave_pgdata_path, user='postgres')
     end_time = datetime.now()
     finish_message = '[%s] Correctly finished in %i seconds' % \
     (green(end_time.strftime('%H:%M:%S')), (end_time - start_time).seconds)

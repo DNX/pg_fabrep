@@ -3,10 +3,10 @@
 import re
 from os.path import abspath, dirname, isfile
 from datetime import datetime
-from fabric.api import env, puts, abort, task, settings, run, sudo, put, hide, cd, upload_template
-#from fabric.operations import sudo, settings, run
+from fabric.api import env, puts, abort, task, put, hide, cd
+from fabric.operations import sudo, settings, run
 from fabric.contrib import console
-#from fabric.contrib.files import upload_template
+from fabric.contrib.files import upload_template
 
 from fabric.colors import _wrap_with, green, red
 
@@ -44,11 +44,44 @@ def setup():
         if 'already exists' in res:
             puts(green("Cluster '%(cluster_name)s' already exists, will not be changed." % env))
         with cd(env.master_pgdata_path):
-            run('''sudo -u postgres psql -p %(cluster_port)s -c "CREATE USER %(sync_user)s SUPERUSER ENCRYPTED PASSWORD '%(sync_pass)s';"''' % env, shell=False)
-            run('''sudo -u postgres createdb -p %(cluster_port)s --owner %(sync_user)s --template template0 --encoding=UTF8 --lc-ctype=en_US.UTF-8 --lc-collate=en_US.UTF-8 %(sync_db)s''' % env, shell=False)
-            run('''sudo -u postgres psql -p %(cluster_port)s -c "GRANT CREATE, CONNECT ON DATABASE %(sync_db)s TO %(sync_user)s WITH GRANT OPTION;"''' % env, shell=False)
-        upload_template('conf/postgres/postgresql.conf', env.master_pgconf_path,
+            with settings(hide('running', 'stdout', 'stderr', 'warnings'), warn_only=True):
+                run('''sudo -u postgres psql -p %(cluster_port)s -c "CREATE USER %(sync_user)s SUPERUSER ENCRYPTED PASSWORD '%(sync_pass)s';"''' % env, shell=False)
+                run('''sudo -u postgres createdb -p %(cluster_port)s --owner %(sync_user)s --template template0 --encoding=UTF8 --lc-ctype=en_US.UTF-8 --lc-collate=en_US.UTF-8 %(sync_db)s''' % env, shell=False)
+                run('''sudo -u postgres psql -p %(cluster_port)s -c "GRANT CREATE, CONNECT ON DATABASE %(sync_db)s TO %(sync_user)s WITH GRANT OPTION;"''' % env, shell=False)
+        postgres_conf_file = 'conf/postgres/postgresql.conf'
+        if not isfile(postgres_conf_file):
+            postgres_conf_file = '%s/%s' % (pg_fabrep_path, postgres_conf_file)
+        upload_template(postgres_conf_file, env.master_pgconf_path,
+                            context=env, backup=False)
+        if env.verbose:
+            puts("Uploaded postgresql.conf from %s to %s" % (green(abspath(postgres_conf_file)), green(env.master_pgconf_path)))
+        # start preparing pg_hba.conf file
+        replication_hba = '%sreplication_hba.conf' % env.master_pgconf_path
+        pg_hba = '%spg_hba.conf' % env.master_pgconf_path
+        pg_hba_bck = '%spg_hba.conf.bck' % env.master_pgconf_path
+        pg_hba_file = 'conf/postgres/pg_hba.conf'
+        if not isfile(pg_hba_file):
+            pg_hba_file = '%s/%s' % (pg_fabrep_path, pg_hba_file)
+        upload_template(pg_hba_file, replication_hba,
                         context=env, backup=False)
+        sudo('mv %s %s' % (pg_hba, pg_hba_bck))
+        sudo("sed -n -e '/START REPLICATION RULES/,/END REPLICATION RULES/!p' %s > %s" % (pg_hba_bck, pg_hba))
+        sudo("cat %s >> %s" % (replication_hba, pg_hba))
+        sudo("rm %s" % replication_hba)
+        # upload repmgr.conf on master server
+        repmgr_context = dict(cluster_name=env.cluster_name,
+                              node_number=env.master_node_number,
+                              sync_user=env.sync_user,
+                              sync_db=env.sync_db,
+                              sync_pass=env.sync_pass,
+                              )
+        repmgr_conf_file = 'conf/repmgr/repmgr.conf'
+        if not isfile(repmgr_conf_file):
+            repmgr_conf_file = '%s/%s' % (pg_fabrep_path, repmgr_conf_file)
+        upload_template(repmgr_conf_file, env.master_pgdata_path,
+                        context=repmgr_context, backup=False)
+        sudo("""echo -e "# Added by pg_fabrep\nexport PGDATA='/var/lib/postgresql/9.1/%s'\nexport PGPORT=%s">/var/lib/postgresql/.bash_profile""" % (env.cluster_name, env.cluster_port))
+        sudo("pg_ctlcluster %(postgres_version)s %(cluster_name)s restart" % env)
 
     end_time = datetime.now()
     finish_message = '[%s] Correctly finished in %i seconds' % \
@@ -154,8 +187,6 @@ def parameter_default_values():
         env.cluster_name = 'main'
     if 'cluster_port' not in env:
         env.cluster_port = 5432
-    if 'ask_confirmation' not in env:
-        env.ask_confirmation = True
     if 'pgmaster_ip' not in env:
         env.pgmaster_ip = ''
     if 'master_node_number' not in env:
@@ -184,6 +215,10 @@ def parameter_default_values():
         env.sync_pass = 'syncpass'
     if 'repmgr_deb' not in env:
         env.repmgr_deb = "postgresql-repmgr-%s_1.0.0.deb" % env.postgres_version
+    if 'ask_confirmation' not in env:
+        env.ask_confirmation = True
+    if 'verbose' not in env:
+        env.verbose = False
 
 
 def _verify_sudo():
@@ -214,18 +249,25 @@ def _install_dependencies():
 
 
 def _common_setup():
-    sudo("apt-get -y install python-software-properties")
-    _add_postgres9_ppa()
-    _install_dependencies()
+#    sudo("apt-get -y install python-software-properties")
+#    _add_postgres9_ppa()
+#    _install_dependencies()
     # create a symlink in /usr/bin/ for /usr/lib/postgresql/<postgres_version>/bin/pg_ctl
     sudo('ln -sf /usr/lib/postgresql/%s/bin/pg_ctl /usr/bin/' % env.postgres_version)
     # install repmgr
     remote_repmgr_deb = '/tmp/%s' % env.repmgr_deb
     if isfile(env.repmgr_deb):
-        ''' we use user defined nginx.conf template '''
         local_repmgr_deb = env.repmgr_deb
     else:
         local_repmgr_deb = '%s/deb/%s' % (pg_fabrep_path, env.repmgr_deb)
     put(local_repmgr_deb, remote_repmgr_deb)
     run('dpkg -i --force-overwrite %s' % remote_repmgr_deb)
     sudo("rm %s" % remote_repmgr_deb)
+
+
+def _standby_clone():
+    """ With "node1" server running, we want to use the clone standby
+    command in repmgr to copy over the entire PostgreSQL database cluster
+    onto the "node2" server. """
+
+    sudo('repmgr -D %(slave_pgdata_path)s -d %(sync_db)s -p %(cluster_port)s -U %(sync_user)s -R postgres --verbose standby clone %(pgmaster_ip)s' % env, user='postgres')

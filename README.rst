@@ -51,23 +51,21 @@ Please pay attention to not have any tasks in your fabfile.py called:
 
 * setup
 
-* deploy
-
 * test_configuration
 
 or
 
-* hg_pull
+* print_configuration
 
 because these names are reserved by pg_fabrep.
 
 Test your configuration first!
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 pg_fabrep come with its own automatic configuration tests. Each time you run
-**setup** or **deploy** task, configuration tests are called.
+**setup** task, configuration tests are called.
 Anyway, you can manually run these tests for your project configuration::
 
-    fab cluster_name test_configuration
+    fab <cluster_name> test_configuration
 
 If you run **test_configuration** manually, you'll observe some output about all your project settings.
 

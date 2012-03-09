@@ -85,6 +85,9 @@ def setup():
 
     # Start configuring the slave
     with settings(host_string=env.pgslave_user_host):
+        print "%s configuring slave server!" % green_bg("Start")
+        _verify_sudo()
+        _common_setup()
         sudo('/etc/init.d/postgresql stop')
         sudo('rm -rf %s' % env.slave_pgdata_path)
         _standby_clone()

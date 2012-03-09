@@ -94,9 +94,9 @@ def setup():
         # upload repmgr.conf on slave server
         repmgr_context = dict(cluster_name=env.cluster_name,
                               node_number=env.slave_node_number,
-                              sync_pg_user=env.sync_user,
-                              sync_database=env.sync_db,
-                              sync_pg_user_pass=env.sync_pass,
+                              sync_user=env.sync_user,
+                              sync_db=env.sync_db,
+                              sync_pass=env.sync_pass,
                               )
         repmgr_conf_file = 'conf/repmgr/repmgr.conf'
         if not isfile(repmgr_conf_file):
@@ -289,9 +289,9 @@ def _install_dependencies():
 
 
 def _common_setup():
-#    sudo("apt-get -y install python-software-properties")
-#    _add_postgres9_ppa()
-#    _install_dependencies()
+    sudo("apt-get -y install python-software-properties")
+    _add_postgres9_ppa()
+    _install_dependencies()
     # create a symlink in /usr/bin/ for /usr/lib/postgresql/<postgres_version>/bin/pg_ctl
     sudo('ln -sf /usr/lib/postgresql/%s/bin/pg_ctl /usr/bin/' % env.postgres_version)
     # install repmgr

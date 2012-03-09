@@ -5,7 +5,15 @@ pg_fabrep: Postgresql Streaming Replication with Fabric and Repmgr
 Introduction
 ============
 
-pg_fabrep allow you to easy setup a Postgresql 9.x Hot Standby Streaming Replication Server With Repmgr.
+pg_fabrep allow you to easy setup a **Postgresql** 9.x **Hot Standby Streaming Replication** Server With **Repmgr**.
+
+Patches are welcome! Feel free to fork and contribute to this project on:
+
+**bitbucket**: `bitbucket.org/DNX/pg_fabrep/ <https://bitbucket.org/DNX/pg_fabrep/>`_
+
+
+**github**: `github.com/DNX/pg_fabrep <https://github.com/DNX/pg_fabrep>`_
+
 
 Installation
 ============

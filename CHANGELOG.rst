@@ -4,4 +4,9 @@ Changelog
 Version dev
 -------------------------------------------------------------
 
+* declared namespace in __init__.py for setuptools 0.7
+
+Version 0.0.1
+-------------------------------------------------------------
+
 * initial structure

@@ -1,3 +1,4 @@
+__import__("pkg_resources").declare_namespace(__name__)
 VERSION = (0, 0, 1, 'alpha', 1)
 
 

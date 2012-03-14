@@ -9,7 +9,7 @@ pg_fabrep allow you to easy setup a **Postgresql** 9.x **Hot Standby Streaming R
 
 Patches are welcome! Feel free to fork and contribute to this project on:
 
-**bitbucket**: `bitbucket.org/DNX/pg_fabrep/ <https://bitbucket.org/DNX/pg_fabrep/>`_
+**bitbucket**: `bitbucket.org/DNX/pg_fabrep <https://bitbucket.org/DNX/pg_fabrep/>`_
 
 
 **github**: `github.com/DNX/pg_fabrep <https://github.com/DNX/pg_fabrep>`_
@@ -51,6 +51,14 @@ configuration of your cluster.
 
 Configuration
 -------------
+
+Copy the scheleton for your cluster settings from <pg_fabrep> path::
+
+    $ cp <pg_fabrep>/example_fabfile.py <your_project>/fabric.py
+
+How to find your <pg_fabrep> path? Just run::
+
+    $ python -c "import pg_fabrep; print(pg_fabrep.__path__)"
 
 to do...
 

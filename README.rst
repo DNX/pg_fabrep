@@ -60,7 +60,32 @@ How to find your <pg_fabrep> path? Just run::
 
     $ python -c "import pg_fabrep; print(pg_fabrep.__path__)"
 
-to do...
+In order to start **setup** task you must change only two parameters,
+**pgmaster_ip** and **pgslave_ip** inside you cluster configuration task in earlier created **fabfile.py**, all other parameters have default
+values and if you need you can change them too.
+
+Here is a list with all parameters you can change and a short explanation for each:
+
+- **env.configured**, don't change this, used for testing purposes
+- **env.postgres_version**, postgres version, can be: "9.0" or "9.1", default: "9.1"
+- **env.cluster_name**, name of your cluster - only numbers, letters and underscores, default: main
+- **env.cluster_port**, postgres cluster port, default: 5432
+- **env.pgmaster_ip**, the IP of your master server
+- **env.master_node_number**, master node number, default: 1
+- **env.pgmaster_user_host**, user@host used by fabric to establish a ssh tunnel between the machine from where the "setup" is launched and the master server, default: "root@<env.pgmaster_ip>"
+- **env.master_pgconf_path**, master pgconf path, default: "/etc/postgresql/<env.postgres_version>/<cluster_name>/"
+- **env.master_pgdata_path**, master pgdata path, default: "/var/lib/postgresql/<env.postgres_version>/<env.cluster_name>/"
+- **env.pgslave_ip**, the IP of your slave server
+- **env.slave_node_number**, slave node number, default: 2
+- **env.pgslave_user_host**, user@host used by fabric to establish a ssh tunnel between the machine from where the "setup" is launched and the slave server, default: "root@<env.pgslave_ip>"
+- **env.slave_pgconf_path**, slave pgconf path, default: "<env.master_pgconf_path>"
+- **env.slave_pgdata_path**, slave pgdata path, default: "<env.master_pgdata_path>"
+- **env.sync_db**, sync database used by repmgr, will be created if not exists, default: "syncdb"
+- **env.sync_user**, sync postgres user used by repmgr, will be created if not exists, default: "syncuser"
+- **env.sync_pass**, sync postgres user password, default: "syncpass"
+- **env.repmgr_deb**, repmgr_deb installer, default:"postgresql-repmgr-<env.postgres_version>_1.0.0.deb"
+- **env.ask_confirmation**, always ask user for confirmation when run any tasks, default: True
+
 
 Please pay attention to not have any tasks in your fabfile.py called:
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -102,24 +127,43 @@ we know:
 
 * the port to be used in your cluster is 5444
 
-!!! TO DO: add another info
-
+* on each server is installed ubuntu server
 
 Ok, it's enough to setup the replication, let's do it!
-Clone postgres_replication skeleton::
+Create a folder to place you cluster settings::
 
-    cp path/to/your/workspace/
+    $ mkdir ~/clusters/
+    $ cd ~/clusters/
 
-or::
+copy here the example_fabfile.py from <pg_fabrep>::
 
-    hg clone https://bitbucket.org/DNX/postgres_replication/
+    # we found pg_fabrep installation path first
+    $ python -c "import pg_fabrep; print(pg_fabrep.__path__)"
+    $ cp <pg_fabrep>/example_fabfile.py fabric.py
 
+now, in our current folder we have a file called **fabric.py**
+which is going to be edited according with our needs.
 
-Now apply some changes to earlier cloned folder:
+#. Change task name::
 
-* in the fabfile.py::
+    # from:
+    def example_cluster():
+    # to:
+    def cluster123():
 
-    # to be added...
+#. Change env.pgmaster_ip::
+
+    # from:
+    env.pgmaster_ip = ""
+    # to:
+    env.pgmaster_ip = "11.11.11.11"
+
+#. Change env.pgslave_ip::
+
+    # from:
+    env.pgmaster_ip = ""
+    # to:
+    env.pgmaster_ip = "22.22.22.22"
 
 not, let's test our configuration::
 

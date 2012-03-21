@@ -161,9 +161,9 @@ which is going to be edited according with our needs.
 #. Change env.pgslave_ip::
 
     # from:
-    env.pgmaster_ip = ""
+    env.pgslave_ip = ""
     # to:
-    env.pgmaster_ip = "22.22.22.22"
+    env.pgslave_ip = "22.22.22.22"
 
 not, let's test our configuration::
 

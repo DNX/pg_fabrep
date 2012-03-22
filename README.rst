@@ -54,11 +54,15 @@ Configuration
 
 Copy the scheleton for your cluster settings from <pg_fabrep> path::
 
-    $ cp <pg_fabrep>/example_fabfile.py <your_project>/fabric.py
+    $ cp <pg_fabrep>/example_fabfile.py <your_project>/fabfile.py
 
 How to find your <pg_fabrep> path? Just run::
 
     $ python -c "import pg_fabrep; print(pg_fabrep.__path__)"
+
+or directly:
+
+    $ cp `python -c "import pg_fabrep; print(pg_fabrep.__path__[0])"`/example_fabfile.py <your_project>/fabfile.py
 
 In order to start **setup** task you must change only two parameters,
 **pgmaster_ip** and **pgslave_ip** inside you cluster configuration task in earlier created **fabfile.py**, all other parameters have default
@@ -139,9 +143,9 @@ copy here the example_fabfile.py from <pg_fabrep>::
 
     # we found pg_fabrep installation path first
     $ python -c "import pg_fabrep; print(pg_fabrep.__path__)"
-    $ cp <pg_fabrep>/example_fabfile.py fabric.py
+    $ cp <pg_fabrep>/example_fabfile.py fabfile.py
 
-now, in our current folder we have a file called **fabric.py**
+now, in our current folder we have a file called **fabfile.py**
 which is going to be edited according with our needs.
 
 #. Change task name::

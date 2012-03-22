@@ -80,7 +80,7 @@ def setup():
             repmgr_conf_file = '%s/%s' % (pg_fabrep_path, repmgr_conf_file)
         upload_template(repmgr_conf_file, env.master_pgdata_path,
                         context=repmgr_context, backup=False)
-        sudo("""echo -e "# Added by pg_fabrep\nexport PGDATA='/var/lib/postgresql/9.1/%s'\nexport PGPORT=%s">/var/lib/postgresql/.bash_profile""" % (env.cluster_name, env.cluster_port))
+        sudo("""echo -e "# Added by pg_fabrep\nexport PGDATA='/var/lib/postgresql/%(postgres_version)s/%(cluster_name)s'\nexport PGPORT=%(cluster_port)s">/var/lib/postgresql/.bash_profile""" % env)
         sudo("pg_ctlcluster %(postgres_version)s %(cluster_name)s restart" % env)
 
     # Start configuring the slave

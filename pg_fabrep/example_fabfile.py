@@ -22,6 +22,10 @@ def example_cluster():
     # the IP of your master server
     env.pgmaster_ip = ""
 
+    # master ssh port, will be used by repmgr/rsync from the slave to replicate the master
+    # default: 22
+    #env.master_ssh_port = 22
+
     # master node number
     # default: 1
     #env.master_node_number = 1

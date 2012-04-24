@@ -75,6 +75,7 @@ Here is a list with all parameters you can change and a short explanation for ea
 - **env.cluster_name**, name of your cluster - only numbers, letters and underscores, default: main
 - **env.cluster_port**, postgres cluster port, default: 5432
 - **env.pgmaster_ip**, the IP of your master server
+- **env.master_ssh_port**, ssh port on the master server, will be used by repmgr/rsync from the slave to sync the files from the master, default: 22
 - **env.master_node_number**, master node number, default: 1
 - **env.pgmaster_user_host**, user@host used by fabric to establish a ssh tunnel between the machine from where the "setup" is launched and the master server, default: "root@<env.pgmaster_ip>"
 - **env.master_pgconf_path**, master pgconf path, default: "/etc/postgresql/<env.postgres_version>/<cluster_name>/"
@@ -110,7 +111,7 @@ pg_fabrep come with its own automatic configuration tests. Each time you run
 **setup** task, configuration tests are called.
 Anyway, you can manually run these tests for your project configuration::
 
-    fab <cluster_name> test_configuration
+    fab <cluster_task_name> test_configuration
 
 If you run **test_configuration** manually, you'll observe some output about all your project settings.
 

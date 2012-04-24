@@ -43,6 +43,8 @@ def setup():
             res = sudo("pg_createcluster --start %(postgres_version)s %(cluster_name)s -p %(cluster_port)s" % env)
         if 'already exists' in res:
             puts(green("Cluster '%(cluster_name)s' already exists, will not be changed." % env))
+        if 'Error: port %s is already used' % env.cluster_port in res:
+            puts(red(res))
         with cd(env.master_pgdata_path):
             with settings(hide('running', 'stdout', 'stderr', 'warnings'), warn_only=True):
                 run('''sudo -u postgres psql -p %(cluster_port)s -c "CREATE USER %(sync_user)s SUPERUSER ENCRYPTED PASSWORD '%(sync_pass)s';"''' % env, shell=False)
@@ -74,6 +76,7 @@ def setup():
                               sync_user=env.sync_user,
                               sync_db=env.sync_db,
                               sync_pass=env.sync_pass,
+                              ssh_port=22,  # we don't need here
                               )
         repmgr_conf_file = 'conf/repmgr/repmgr.conf'
         if not isfile(repmgr_conf_file):
@@ -89,29 +92,10 @@ def setup():
         _verify_sudo()
         _common_setup()
         sudo('rm -rf %s' % env.slave_pgdata_path)
+        sudo('mkdir -p %s' % env.slave_pgdata_path)
+        sudo('chown postgres:postgres %s' % env.slave_pgdata_path)
         _standby_clone()
-        # upload repmgr.conf on slave server
-        repmgr_context = dict(cluster_name=env.cluster_name,
-                              node_number=env.slave_node_number,
-                              sync_user=env.sync_user,
-                              sync_db=env.sync_db,
-                              sync_pass=env.sync_pass,
-                              )
-        repmgr_conf_file = 'conf/repmgr/repmgr.conf'
-        if not isfile(repmgr_conf_file):
-            repmgr_conf_file = '%s/%s' % (pg_fabrep_path, repmgr_conf_file)
-        upload_template(repmgr_conf_file, env.master_pgdata_path,
-                        context=repmgr_context, backup=False)
-        slave_postgresql_conf = "%spostgresql.conf" % env.slave_pgdata_path
-        slave_postgresql_conf_bck = "%spostgresql.conf.bck" % env.slave_pgdata_path
-        sudo('mv %s %s' % (slave_postgresql_conf, slave_postgresql_conf_bck))
-        sudo("sed '/hot_standby =/c hot_standby = on' %s > %s" % \
-             (slave_postgresql_conf_bck, slave_postgresql_conf))
-        sudo("mkdir -p %s" % env.slave_pgconf_path)
-        sudo("cp %spg_hba.conf %s" % (env.slave_pgdata_path, env.slave_pgconf_path))
-        sudo("cp %spg_ident.conf %s" % (env.slave_pgdata_path, env.slave_pgconf_path))
-        sudo("cp %spostgresql.conf %s" % (env.slave_pgdata_path, env.slave_pgconf_path))
-        run("sudo -u postgres pg_ctl -D /var/lib/postgresql/%(postgres_version)s/%(cluster_name)s/ start" % env)
+        finish_configuring_slave()  # you can start it manually
 
     #  TODO: ...
     # # repmgr register master
@@ -147,6 +131,8 @@ def test_configuration():
 
     if not env.get('pgmaster_ip'):
         errors.append('Master server IP missing')
+    if not env.get('master_ssh_port'):
+        errors.append('Master server ssh port missing')
     if not env.get('master_node_number'):
         errors.append('Incorrect master node number')
     if not env.get('pgmaster_user_host'):
@@ -194,6 +180,7 @@ def print_configuration():
     parameters_info.append(("Cluster port", env.cluster_port))
     parameters_info.append(("--- Master Configuration", "----------"))
     parameters_info.append(("Master server IP", env.pgmaster_ip))
+    parameters_info.append(("Master server ssh port", env.master_ssh_port))
     parameters_info.append(("Master node number", env.master_node_number))
     parameters_info.append(("Master user@host", env.pgmaster_user_host))
     parameters_info.append(("Master pgconf path", env.master_pgconf_path))
@@ -228,6 +215,8 @@ def parameter_default_values():
         env.cluster_port = 5432
     if 'pgmaster_ip' not in env:
         env.pgmaster_ip = ''
+    if 'master_ssh_port' not in env:
+        env.master_ssh_port = 22
     if 'master_node_number' not in env:
         env.master_node_number = 1
     if 'pgmaster_user_host' not in env:
@@ -258,6 +247,35 @@ def parameter_default_values():
         env.ask_confirmation = True
     if 'verbose' not in env:
         env.verbose = False
+
+
+@task
+def finish_configuring_slave():
+    parameter_default_values()
+    with settings(host_string=env.pgslave_user_host):
+        # upload repmgr.conf on slave server
+        repmgr_context = dict(cluster_name=env.cluster_name,
+                              node_number=env.slave_node_number,
+                              sync_user=env.sync_user,
+                              sync_db=env.sync_db,
+                              sync_pass=env.sync_pass,
+                              ssh_port=env.master_ssh_port,
+                              )
+        repmgr_conf_file = 'conf/repmgr/repmgr.conf'
+        if not isfile(repmgr_conf_file):
+            repmgr_conf_file = '%s/%s' % (pg_fabrep_path, repmgr_conf_file)
+        upload_template(repmgr_conf_file, env.master_pgdata_path,
+                        context=repmgr_context, backup=False)
+        slave_postgresql_conf = "%spostgresql.conf" % env.slave_pgdata_path
+        slave_postgresql_conf_bck = "%spostgresql.conf.bck" % env.slave_pgdata_path
+        sudo('mv %s %s' % (slave_postgresql_conf, slave_postgresql_conf_bck))
+        sudo("sed '/hot_standby =/c hot_standby = on' %s > %s" % \
+             (slave_postgresql_conf_bck, slave_postgresql_conf))
+        sudo("mkdir -p %s" % env.slave_pgconf_path)
+        sudo("cp %spg_hba.conf %s" % (env.slave_pgdata_path, env.slave_pgconf_path))
+        sudo("cp %spg_ident.conf %s" % (env.slave_pgdata_path, env.slave_pgconf_path))
+        sudo("cp %spostgresql.conf %s" % (env.slave_pgdata_path, env.slave_pgconf_path))
+        run("sudo -u postgres pg_ctl -D /var/lib/postgresql/%(postgres_version)s/%(cluster_name)s/ start" % env)
 
 
 def _verify_sudo():
@@ -308,5 +326,24 @@ def _standby_clone():
     """ With "node1" server running, we want to use the clone standby
     command in repmgr to copy over the entire PostgreSQL database cluster
     onto the "node2" server. """
+    # manualy:
+    # $ mkdir -p /var/lib/postgresql/9.1/testscluster/
+    # $ rsync -avz --rsh='ssh -p2222' root@12.34.56.789:/var/lib/postgresql/9.1/testscluster/ /var/lib/postgresql/9.1/testscluster/
 
-    sudo('repmgr -D %(slave_pgdata_path)s -d %(sync_db)s -p %(cluster_port)s -U %(sync_user)s -R postgres --verbose standby clone %(pgmaster_ip)s' % env, user='postgres')
+    with settings(hide('running', 'stdout', 'stderr', 'warnings'), warn_only=True):
+        puts(green('Start cloning the master'))
+        repmgr_clone_command = 'repmgr -D %(slave_pgdata_path)s -d %(sync_db)s -p %(cluster_port)s -U %(sync_user)s -R postgres --verbose standby clone %(pgmaster_ip)s' % env
+        puts(green(repmgr_clone_command))
+        puts("-" * 40)
+        res = sudo(repmgr_clone_command, user='postgres')
+        if 'Can not connect to the remote host' in res or 'Connection to database failed' in res:
+            puts("-" * 40)
+            puts(green(repmgr_clone_command))
+            puts("-" * 40)
+            puts("Master server is %s reachable." % red("NOT"))
+            puts("%s you can try to CLONE the slave manually [%s]:" % (green("BUT"), red("at your own risk")))
+            puts("On the slave server:")
+            puts("$ sudo -u postgres rsync -avz --rsh='ssh -p%(master_ssh_port)s' postgres@%(pgmaster_ip)s:%(master_pgdata_path)s %(slave_pgdata_path)s --exclude=pg_xlog* --exclude=pg_control --exclude=*.pid" % env)
+            puts("Here:")
+            puts("$ fab <cluster_task_name> finish_configuring_slave")
+            abort("STOP...")

@@ -31,7 +31,7 @@ setup(
     license='BSD License',
     description="Postgresql Streaming Replication with Fabric and Repmgr",
     long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst')).read(),
-    author='Darii Denis',
+    author='Denis Darii',
     author_email='denis.darii@gmail.com',
     keywords='postgres streaming replication fabric repmgr',
     packages=find_packages(),

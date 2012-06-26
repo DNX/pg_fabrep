@@ -4,6 +4,11 @@ Changelog
 Version 0.0.4
 -------------------------------------------------------------
 
+* ready for Ubuntu 12.04 LTS
+
+Version 0.0.4
+-------------------------------------------------------------
+
 * added master_ssh_port parameter
 * updated README.rst
 

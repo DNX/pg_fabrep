@@ -285,7 +285,8 @@ def _verify_sudo():
 
 def _add_postgres9_ppa():
     ''' add postgresql 9.x ppa '''
-    sudo('add-apt-repository ppa:pitti/postgresql')
+    if 'Ubuntu 12.04' not in sudo('cat /etc/issue.net'):
+        sudo('add-apt-repository ppa:pitti/postgresql')
 
 
 def _install_dependencies():
